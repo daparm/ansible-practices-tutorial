@@ -26,7 +26,6 @@ all:
     group4:
       hosts:
         host6:
-        host5:
 EOF
 ```
 Create the group_vars directory structure:
@@ -106,6 +105,7 @@ ansible-inventory -i groups_and_hosts --graph --vars
 
 To ensure the ansible-inventory command is acting like the ansible-playbook, we can also create a playbook:
 
+```bash
 cat <<EOF> testing_variables.yml
 ---
 - name: Testing variables
@@ -120,9 +120,38 @@ cat <<EOF> testing_variables.yml
           - "Host variable: {{ h }}"
           - "Group variable: {{ g }}"
 EOF
+```
 
 Running the playbook:
 
 ```bash
 ansible-playbook -i groups_and_hosts testing_variables.yml  -l group4
+```
+
+If we now would have a more pleasant result, we could remove the group variable from the groups 4,3 and 1 (because 3 is a group child of group 1):
+
+```bash
+echo -e "---" >  group_vars/group1/all.yml
+echo -e "---" >  group_vars/group3/all.yml
+echo -e "---" >  group_vars/group4/all.yml
+```
+
+And only rely on the group_vars/all/all.yml variable.
+
+```bash
+ansible-playbook -i groups_and_hosts testing_variables.yml  -l group4
+```
+
+
+So as we can see, it can become quite complex, so as a good practice, try to avoid to assign hosts to multiple groups, if this is not working out for you, try to use the all variable and omit the specific variable in the affected groups.  
+Otherwise just define it on host_var level.  
+
+## Multiple Environments
+
+Usually, we will work in projects having more then one environment. 
+
+Cleanup:
+
+```bash
+rm -rv !("README.md"|*.sh)
 ```
