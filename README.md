@@ -4,7 +4,7 @@ Short tutorial to display good ansible practices based on [Good Practices for An
 
 ## Inventory
 
-Inventories are 
+Inventories are a list of hosts you want to administer.
 
 ```bash
 cat <<EOF> groups_and_hosts
@@ -144,14 +144,157 @@ ansible-playbook -i groups_and_hosts testing_variables.yml  -l group4
 
 
 So as we can see, it can become quite complex, so as a good practice, try to avoid to assign hosts to multiple groups, if this is not working out for you, try to use the all variable and omit the specific variable in the affected groups.  
-Otherwise just define it on host_var level.  
-
-## Multiple Environments
-
-Usually, we will work in projects having more then one environment. 
+  
+As a thumb rule: Ansible always flattens variables, including inventory variables, to the host level, so if you run into issues regarding working with group_vars, you can always use the host_vars to ensure functionality.
 
 Cleanup:
 
 ```bash
 rm -rv !("README.md"|*.sh)
+```
+
+## Multiple Environments
+
+We learned so far how to setup a structured inventory for a single environment. But usually, we will work in projects having more then one environments.  
+
+In both cases, it is recommended to have a dedicated inventory folder in your project for that purpose.  
+Let's assume we want to manage a basic three tier application consisting of web server, database server and application server. We want to deploy this stack in three different environments: dev, test and prod.  
+
+With this information, we can create a basic multi environment structure:  
+
+```bash
+environments=("dev" "test" "prod")
+groups=("web" "database" "apps" "all")
+hosts=("web1" "web2" "database1" "database2" "app1" "app2")
+domain="example.com"
+fqdns=("${hosts[@]/%/.${domain}}")
+subnet_third_octet="0"
+subnet_fourth_octet="0"
+subnet_first_and_second_octet="10.0"
+for m in ${environments[@]};
+do
+    for g in ${groups[@]}; do mkdir -p inventory/${m}/group_vars/${g}; done
+    echo -e "---\nprovision_vm_name: \"{{ inventory_hostname }}\"" >  inventory/${m}/group_vars/all/all.yml
+    echo "env: \"${m}\"" >>  inventory/${m}/group_vars/all/all.yml
+    for f in ${fqdns[@]}; do mkdir -p inventory/${m}/host_vars/${f}; done
+    l=${m};subnet_third_octet=$(expr $subnet_third_octet + 1);subnet_fourth_octet=0;for i in ${fqdns[@]}; do echo -e "---\nip: ${subnet_first_and_second_octet}.${subnet_third_octet}.${subnet_fourth_octet}" > inventory/${l}/host_vars/${i}/network.yml; subnet_fourth_octet=$(expr $subnet_fourth_octet + 1);done
+done
+
+for m in ${environments[@]}; do cat <<EOF> inventory/$m/groups_and_hosts
+---
+all:
+  children:
+    $m:
+      children:
+        web:
+          hosts:
+            web1.example.com:
+            web2.example.com:
+        database:
+          hosts:
+            database1.example.com:
+            database2.example.com:
+        app:
+          hosts:
+            app1.example.com:
+            app2.example.com:
+EOF
+done
+```
+
+Now we have a seperated environment structure. Great. Time to test it:
+
+```bash
+ansible-inventory -i inventory/dev/groups_and_hosts --list | jq ._meta.hostvars
+```
+or
+```bash
+ansible-inventory -i inventory/test/groups_and_hosts --list | jq ._meta.hostvars
+```
+
+As we can see here, the seperation does work great for single references.
+
+But what happens if we want to be clever and try to combine all seperated inventory into one with multiply "-i" calls? 
+
+```bash
+ansible-inventory -i inventory/dev/groups_and_hosts -i inventory/test/groups_and_hosts -i inventory/prod/groups_and_hosts --list | jq ._meta.hostvars
+```
+
+We will find out that the variable merging do kinda misbehave. On two levels, the flattened variables collidate with the host_vars reference, so a better praxis would be to ensure that we only have unique hostnames. And we will encounter that the last overlapping group_vars are overwritten by the last called inventory. Swap the prod and dev inventory to point ot the behavior and make it clear:
+
+```bash
+ansible-inventory -i inventory/prod/groups_and_hosts -i inventory/test/groups_and_hosts -i inventory/dev/groups_and_hosts --list | jq ._meta.hostvars
+```
+
+### Unique Hostnames
+
+Let's get rid of the multi environment inventory structure with overlapping hostnames and recreate them with unqiue hostnames.  
+
+
+Cleanup:
+
+```bash
+rm -rv !("README.md"|*.sh)
+```
+
+
+
+```bash
+environments=("dev" "test" "prod")
+groups=("web" "database" "apps" "all")
+hosts=("web1" "web2" "database1" "database2" "app1" "app2")
+domain="example.com"
+subnet_third_octet="0"
+subnet_fourth_octet="0"
+subnet_first_and_second_octet="10.0"
+
+for m in ${environments[@]};
+do
+    fqdns=("${hosts[@]/%/-${m}.${domain}}")
+    for g in ${groups[@]}; do mkdir -p inventory/${m}/group_vars/${g}; done
+    echo -e "---\nprovision_vm_name: \"{{ inventory_hostname }}\"" >  inventory/${m}/group_vars/all/all.yml
+    echo "env: \"${m}\"" >>  inventory/${m}/group_vars/all/all.yml
+    for f in ${fqdns[@]}; do mkdir -p inventory/${m}/host_vars/${f}; done
+    l=${m};subnet_third_octet=$(expr $subnet_third_octet + 1);subnet_fourth_octet=0;for i in ${fqdns[@]}; do echo -e "---\nip: ${subnet_first_and_second_octet}.${subnet_third_octet}.${subnet_fourth_octet}" > inventory/${l}/host_vars/${i}/network.yml; subnet_fourth_octet=$(expr $subnet_fourth_octet + 1);done
+done
+
+for m in ${environments[@]}; do cat <<EOF> inventory/$m/groups_and_hosts
+---
+all:
+  children:
+    $m:
+      children:
+        web:
+          hosts:
+            web1-$m.example.com:
+            web2-$m.example.com:
+        database:
+          hosts:
+            database1-$m.example.com:
+            database2-$m.example.com:
+        app:
+          hosts:
+            app1-$m.example.com:
+            app2-$m.example.com:
+EOF
+done
+```
+
+
+If we rerun the tests, we can see that it works far better referencing multiple inventory files. The group_vars are still an issue, we can not do much against it other then changing the order of the inventories and ensure we select the dominant one on the end. And we can implement a cross environments file via a symlink:  
+
+```bash
+echo -e "---\ncross_env_variable: \"variable_across_all_variables\"" > inventory/000_cross_env_vars.yml
+ln -s $(pwd)/inventory/000_cross_env_vars.yml $(pwd)/inventory/dev/group_vars/all
+ln -s $(pwd)/inventory/000_cross_env_vars.yml $(pwd)/inventory/test/group_vars/all
+ln -s $(pwd)/inventory/000_cross_env_vars.yml $(pwd)/inventory/prod/group_vars/all
+```
+
+
+```bash
+ansible-inventory -i inventory/prod/groups_and_hosts -i inventory/test/groups_and_hosts -i inventory/dev/groups_and_hosts --list | jq ._meta.hostvars
+```
+And with prod as the dominating group var:  
+```bash
+ansible-inventory -i inventory/dev/groups_and_hosts -i inventory/test/groups_and_hosts -i inventory/prod/groups_and_hosts --list | jq ._meta.hostvars
 ```

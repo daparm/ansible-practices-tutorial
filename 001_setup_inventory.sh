@@ -55,3 +55,4 @@ echo -e "---" >  group_vars/group4/all.yml
 
 ansible-playbook -i groups_and_hosts testing_variables.yml  -l group4
 
+tree .
