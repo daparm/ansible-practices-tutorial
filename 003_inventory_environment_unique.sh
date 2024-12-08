@@ -21,20 +21,18 @@ for m in ${environments[@]}; do cat <<EOF> inventory/$m/groups_and_hosts
 ---
 all:
   children:
-    $m:
-      children:
-        web:
-          hosts:
-            web1-$m.example.com:
-            web2-$m.example.com:
-        database:
-          hosts:
-            database1-$m.example.com:
-            database2-$m.example.com:
-        app:
-          hosts:
-            app1-$m.example.com:
-            app2-$m.example.com:
+    web:
+      hosts:
+        web1-$m.example.com:
+        web2-$m.example.com:
+    database:
+      hosts:
+        database1-$m.example.com:
+        database2-$m.example.com:
+    app:
+      hosts:
+        app1-$m.example.com:
+        app2-$m.example.com:
 EOF
 done
 
