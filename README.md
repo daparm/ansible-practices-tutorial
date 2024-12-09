@@ -430,3 +430,8 @@ This structure will be displayed:
   |--{cross_env_variable = variable_across_all_variables}
   |--{provision_vm_name = {{ inventory_hostname }}}
 ```
+
+
+## AAP
+
+Working with AAP is again a little more interesting, since we can not use the cross environment vars nor the all variables. This means we have to be more creative with the variables.  

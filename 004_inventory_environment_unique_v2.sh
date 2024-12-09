@@ -64,6 +64,15 @@ cat <<EOF> testing_variables.yml
           - "{{ inventory_hostname is search('dev') }}"
           - "{{ inventory_hostname is search('test') }}"
           - "{{ inventory_hostname is search('prod') }}"
+
+    - name: Display entire hostvars
+      ansible.builtin.debug:
+        var: hostvars[inventory_hostname]
+
+
+    - name: ping
+      ansible.builtin.ping:
+
 EOF
 
 ansible-playbook -i inventory/dev/groups_and_hosts -i inventory/test/groups_and_hosts -i inventory/prod/groups_and_hosts testing_variables.yml
