@@ -298,3 +298,135 @@ And with prod as the dominating group var:
 ```bash
 ansible-inventory -i inventory/dev/groups_and_hosts -i inventory/test/groups_and_hosts -i inventory/prod/groups_and_hosts --list | jq ._meta.hostvars
 ```
+
+As we can see, the first three iterations of creating an proper inventory could not solve the collapsing of either hosts or groups.  
+
+So to ultimately ensure we can not only work with isolated environments as seen in "003_inventory_environment_unique.sh" but can also chain inventories one after another, we also need to establish unique nested groups, or we will run into the issue, that Ansible cannot distinguish between the child groups "app", "database" "web" and parent groups "dev", "test" and "prod" properly.  
+
+If we take a look on our host and group variable, we now have a unique set, which works in most scenarios. But we have to sacrifice the usage of the "all" group variable assignment, in favour of not running into overriding the variable in favour of the last used inventory file. To be able to still assign global variables across all environments, we can use the "000_cross_env_vars.yml" reference.
+
+Running this command will show it:
+
+```bash
+ansible-inventory -i inventory/dev/groups_and_hosts -i inventory/test/groups_and_hosts -i inventory/prod/groups_and_hosts --graph --vars
+```
+
+This structure will be displayed:
+
+```bash
+@all:
+  |--@ungrouped:
+  |--@dev:
+  |  |--@web_dev:
+  |  |  |--web1-dev.example.com
+  |  |  |  |--{cross_env_variable = variable_across_all_variables}
+  |  |  |  |--{env = dev}
+  |  |  |  |--{ip = 10.0.1.0}
+  |  |  |  |--{provision_vm_name = {{ inventory_hostname }}}
+  |  |  |--web2-dev.example.com
+  |  |  |  |--{cross_env_variable = variable_across_all_variables}
+  |  |  |  |--{env = dev}
+  |  |  |  |--{ip = 10.0.1.1}
+  |  |  |  |--{provision_vm_name = {{ inventory_hostname }}}
+  |  |  |--{env = dev}
+  |  |--@database_dev:
+  |  |  |--database1-dev.example.com
+  |  |  |  |--{cross_env_variable = variable_across_all_variables}
+  |  |  |  |--{env = dev}
+  |  |  |  |--{ip = 10.0.1.2}
+  |  |  |  |--{provision_vm_name = {{ inventory_hostname }}}
+  |  |  |--database2-dev.example.com
+  |  |  |  |--{cross_env_variable = variable_across_all_variables}
+  |  |  |  |--{env = dev}
+  |  |  |  |--{ip = 10.0.1.3}
+  |  |  |  |--{provision_vm_name = {{ inventory_hostname }}}
+  |  |  |--{env = dev}
+  |  |--@app_dev:
+  |  |  |--app1-dev.example.com
+  |  |  |  |--{cross_env_variable = variable_across_all_variables}
+  |  |  |  |--{env = dev}
+  |  |  |  |--{ip = 10.0.1.4}
+  |  |  |  |--{provision_vm_name = {{ inventory_hostname }}}
+  |  |  |--app2-dev.example.com
+  |  |  |  |--{cross_env_variable = variable_across_all_variables}
+  |  |  |  |--{env = dev}
+  |  |  |  |--{ip = 10.0.1.5}
+  |  |  |  |--{provision_vm_name = {{ inventory_hostname }}}
+  |  |  |--{env = dev}
+  |--@test:
+  |  |--@web_test:
+  |  |  |--web1-test.example.com
+  |  |  |  |--{cross_env_variable = variable_across_all_variables}
+  |  |  |  |--{env = test}
+  |  |  |  |--{ip = 10.0.2.0}
+  |  |  |  |--{provision_vm_name = {{ inventory_hostname }}}
+  |  |  |--web2-test.example.com
+  |  |  |  |--{cross_env_variable = variable_across_all_variables}
+  |  |  |  |--{env = test}
+  |  |  |  |--{ip = 10.0.2.1}
+  |  |  |  |--{provision_vm_name = {{ inventory_hostname }}}
+  |  |  |--{env = test}
+  |  |--@database_test:
+  |  |  |--database1-test.example.com
+  |  |  |  |--{cross_env_variable = variable_across_all_variables}
+  |  |  |  |--{env = test}
+  |  |  |  |--{ip = 10.0.2.2}
+  |  |  |  |--{provision_vm_name = {{ inventory_hostname }}}
+  |  |  |--database2-test.example.com
+  |  |  |  |--{cross_env_variable = variable_across_all_variables}
+  |  |  |  |--{env = test}
+  |  |  |  |--{ip = 10.0.2.3}
+  |  |  |  |--{provision_vm_name = {{ inventory_hostname }}}
+  |  |  |--{env = test}
+  |  |--@app_test:
+  |  |  |--app1-test.example.com
+  |  |  |  |--{cross_env_variable = variable_across_all_variables}
+  |  |  |  |--{env = test}
+  |  |  |  |--{ip = 10.0.2.4}
+  |  |  |  |--{provision_vm_name = {{ inventory_hostname }}}
+  |  |  |--app2-test.example.com
+  |  |  |  |--{cross_env_variable = variable_across_all_variables}
+  |  |  |  |--{env = test}
+  |  |  |  |--{ip = 10.0.2.5}
+  |  |  |  |--{provision_vm_name = {{ inventory_hostname }}}
+  |  |  |--{env = test}
+  |--@prod:
+  |  |--@web_prod:
+  |  |  |--web1-prod.example.com
+  |  |  |  |--{cross_env_variable = variable_across_all_variables}
+  |  |  |  |--{env = prod}
+  |  |  |  |--{ip = 10.0.3.0}
+  |  |  |  |--{provision_vm_name = {{ inventory_hostname }}}
+  |  |  |--web2-prod.example.com
+  |  |  |  |--{cross_env_variable = variable_across_all_variables}
+  |  |  |  |--{env = prod}
+  |  |  |  |--{ip = 10.0.3.1}
+  |  |  |  |--{provision_vm_name = {{ inventory_hostname }}}
+  |  |  |--{env = prod}
+  |  |--@database_prod:
+  |  |  |--database1-prod.example.com
+  |  |  |  |--{cross_env_variable = variable_across_all_variables}
+  |  |  |  |--{env = prod}
+  |  |  |  |--{ip = 10.0.3.2}
+  |  |  |  |--{provision_vm_name = {{ inventory_hostname }}}
+  |  |  |--database2-prod.example.com
+  |  |  |  |--{cross_env_variable = variable_across_all_variables}
+  |  |  |  |--{env = prod}
+  |  |  |  |--{ip = 10.0.3.3}
+  |  |  |  |--{provision_vm_name = {{ inventory_hostname }}}
+  |  |  |--{env = prod}
+  |  |--@app_prod:
+  |  |  |--app1-prod.example.com
+  |  |  |  |--{cross_env_variable = variable_across_all_variables}
+  |  |  |  |--{env = prod}
+  |  |  |  |--{ip = 10.0.3.4}
+  |  |  |  |--{provision_vm_name = {{ inventory_hostname }}}
+  |  |  |--app2-prod.example.com
+  |  |  |  |--{cross_env_variable = variable_across_all_variables}
+  |  |  |  |--{env = prod}
+  |  |  |  |--{ip = 10.0.3.5}
+  |  |  |  |--{provision_vm_name = {{ inventory_hostname }}}
+  |  |  |--{env = prod}
+  |--{cross_env_variable = variable_across_all_variables}
+  |--{provision_vm_name = {{ inventory_hostname }}}
+```

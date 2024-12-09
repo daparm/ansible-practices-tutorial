@@ -1,7 +1,7 @@
 #! /bin/bash
 
 environments=("dev" "test" "prod")
-groups=("web" "database" "apps" "all")
+groups=("web" "database" "app" "all")
 hosts=("web1" "web2" "database1" "database2" "app1" "app2")
 domain="example.com"
 fqdns=("${hosts[@]/%/.${domain}}")
@@ -21,18 +21,20 @@ for m in ${environments[@]}; do cat <<EOF> inventory/$m/groups_and_hosts
 ---
 all:
   children:
-    web:
-      hosts:
-        web1.example.com:
-        web2.example.com:
-    database:
-      hosts:
-        database1.example.com:
-        database2.example.com:
-    app:
-      hosts:
-        app1.example.com:
-        app2.example.com:
+    $m:
+      children:
+        web:
+          hosts:
+            web1.example.com:
+            web2.example.com:
+        database:
+          hosts:
+            database1.example.com:
+            database2.example.com:
+        app:
+          hosts:
+            app1.example.com:
+            app2.example.com:
 EOF
 done
 
@@ -43,5 +45,22 @@ ansible-inventory -i inventory/test/groups_and_hosts --list | jq ._meta.hostvars
 ansible-inventory -i inventory/dev/groups_and_hosts -i inventory/test/groups_and_hosts -i inventory/prod/groups_and_hosts --list | jq ._meta.hostvars
 
 ansible-inventory -i inventory/prod/groups_and_hosts -i inventory/test/groups_and_hosts -i inventory/dev/groups_and_hosts --list | jq ._meta.hostvars
+
+cat <<EOF> testing_variables.yml
+---
+- name: Testing variables
+  hosts: all
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Display variables
+      ansible.builtin.debug:
+        msg: 
+          - "Host variable: {{ h }}"
+          - "Group variable: {{ g }}"
+EOF
+
+ansible-playbook -i inventory/dev/groups_and_hosts -i inventory/test/groups_and_hosts -i inventory/prod/groups_and_hosts testing_variables.yml
 
 tree inventory
